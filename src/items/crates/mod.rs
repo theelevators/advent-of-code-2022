@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{ Instructions, Instruction, Command };
+use super::{ Instructions, Instruction, Command, Crane };
 
 pub type Crates = String;
 pub type Stacks = Vec<Stack>;
@@ -8,7 +8,8 @@ pub type Stacks = Vec<Stack>;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Ship {
     pub stacks: Stacks,
-    pub loading_instructions: Instructions,
+    instructions: Instructions,
+    crane: Crane,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
@@ -32,19 +33,43 @@ impl Stack {
         }
         taken
     }
+    pub fn receive_bulk_crates(&mut self, crates: Crates) {
+        self.crates.insert_str(0, crates.as_str());
+    }
     pub fn receive_crates(&mut self, crates: Crates) {
         for c in crates.chars() {
             self.crates.insert(0, c);
         }
     }
+    pub fn take_bulk_crates(&mut self, qty: i32) -> Crates {
+        let chars: Vec<_> = self.crates
+            .chars()
+            .enumerate()
+            .filter(|(idx, ..)| qty > (idx.to_owned() as i32))
+            .collect();
+        let chars: Vec<_> = chars
+            .iter()
+            .map(|x| String::from(x.1))
+            .collect();
+
+        for _ in 0..qty {
+            self.crates.remove(0);
+        }
+
+        Crates::from(chars[..qty as usize].to_vec().join(""))
+    }
 }
 
 impl Ship {
     pub fn new() -> Ship {
-        Ship { stacks: Stacks::new(), loading_instructions: Instructions::new() }
+        Ship { stacks: Stacks::new(), instructions: Instructions::new(), crane: Crane::Generic }
     }
 
-    pub fn load_stacks(mut self, cargo: &String) -> Self {
+    pub fn set_crane(&mut self, crane: Crane) {
+        self.crane = crane;
+    }
+
+    pub fn load_stacks(&mut self, cargo: &String) {
         let mut map: HashMap<i32, Stack> = HashMap::new();
         for line in cargo.lines() {
             for (idx, c) in line.chars().enumerate() {
@@ -66,10 +91,22 @@ impl Ship {
             .values()
             .map(|v| v.to_owned())
             .collect();
-        self
     }
 
-    pub fn move_load(&mut self, from: i32, to: i32, qty: i32) -> Self {
+    pub fn move_bulk(&mut self, from: i32, to: i32, qty: i32) {
+        let giver = self.stacks
+            .iter_mut()
+            .find(|stack| stack.number == from)
+            .expect("From Stack not found");
+        let taken = giver.take_bulk_crates(qty);
+        let reciever = self.stacks
+            .iter_mut()
+            .find(|stack| stack.number == to)
+            .expect("To Stack not found!");
+        reciever.receive_bulk_crates(taken);
+    }
+
+    pub fn move_load(&mut self, from: i32, to: i32, qty: i32) {
         let giver = self.stacks
             .iter_mut()
             .find(|stack| stack.number == from)
@@ -80,8 +117,6 @@ impl Ship {
             .find(|stack| stack.number == to)
             .expect("To Stack not found!");
         reciever.receive_crates(taken);
-
-        self.to_owned()
     }
 
     pub fn set_instructions(&mut self, file: &String) {
@@ -116,25 +151,46 @@ impl Ship {
                             _ => println!("Invalid instructions: {}", chunk[0]),
                         }
                     }
-                    self.loading_instructions.insert(count as usize, inst);
+                    self.instructions.insert(count as usize, inst);
                 }
             }
             count += 1;
         }
     }
 
-    pub fn follow_instruction(mut self, instruction: Instruction) -> Self {
-        match instruction.cmd {
-            Command::Move =>
-                self.move_load(instruction.targets.0, instruction.targets.1, instruction.qty),
-            _ => panic!("Command not supported"),
+    pub fn operate_crane(&mut self, instruction: &Instruction) {
+        match self.crane {
+            Crane::CrateMover9000 => {
+                match instruction.cmd {
+                    Command::Move =>
+                        self.move_load(
+                            instruction.targets.0,
+                            instruction.targets.1,
+                            instruction.qty
+                        ),
+                    _ => panic!("Command not supported"),
+                }
+            }
+            Crane::CrateMover9001 => {
+                match instruction.cmd {
+                    Command::Move =>
+                        self.move_bulk(
+                            instruction.targets.0,
+                            instruction.targets.1,
+                            instruction.qty
+                        ),
+                    _ => panic!("Command not supported"),
+                }
+            }
+            _ => panic!("Generic Cranes are unsafe!!!!"),
         }
     }
-    pub fn run_instruction_set(mut self) -> Self {
-        for inst in self.loading_instructions.clone() {
-            self = self.follow_instruction(inst.to_owned()).to_owned();
-        }
-        self
+
+    pub fn follow_instructions(&mut self) {
+        self.instructions
+            .clone()
+            .iter()
+            .for_each(|inst| self.operate_crane(inst));
     }
 
     pub fn get_top_crates(&mut self) -> Crates {

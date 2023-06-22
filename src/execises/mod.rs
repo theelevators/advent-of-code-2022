@@ -1,5 +1,10 @@
+use std::fs::read_to_string;
+
 use crate::elves::ElvesTeam;
 use crate::games::rock_paper_scissors::Guide;
+use crate::items::Crane;
+use crate::items::crates::Ship;
+use crate::items::handheld::Handheld;
 use crate::items::units::Calories;
 use crate::items::{ backpack::{ Belongings, Travel }, units::Priority };
 
@@ -47,6 +52,38 @@ pub fn camp_cleanup(){
     println!("\nThe elves overlap count is: {}", ElvesTeam::count_tasks_overlaps(file));
     println!("\nThe elves total section overlap count is: {}\n", ElvesTeam::count_all_tasks_overlaps(file));
 
+}
+
+pub fn supply_stacks(){
+    
+    let file = read_to_string("stacks.txt").expect("File not found!");
+    let mut parts = file.split("\r\n\r\n");
+    let load = parts.next().expect("Unable to make map!").split("").collect();
+    let instructions = parts.next().expect("Unable to read instrcutions!").split("").collect();
+
+    let mut ship = Ship::new();
+    ship.load_stacks(&load);
+    ship.set_crane(Crane::CrateMover9000);
+    ship.set_instructions(&instructions);
+    ship.follow_instructions();
+
+    println!("\n######### Day 5 #########\n");
+    println!("With CrateMover 9000 you get: {:?}", ship.get_top_crates());
+    ship.set_crane(Crane::CrateMover9001);
+    ship.load_stacks(&load);
+    ship.follow_instructions();
+    println!("With CrateMover 9001 you get: {:?}", ship.get_top_crates());
 
 }
 
+
+pub fn tuning_trouble(){
+    let file: String = read_to_string("tuningtrouble.txt").expect("File not found!");
+    let mut handheld: Handheld = Handheld::new();
+
+    println!("\n######### Day 6 #########\n");
+    handheld.set_frequency(4);
+    handheld.read_signals(&file);
+    handheld.set_frequency(14);
+    handheld.read_signals(&file);
+}

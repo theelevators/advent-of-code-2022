@@ -1,11 +1,11 @@
-use std::collections::HashMap;
 
-use self::{units::Calories, crates::Ship};
+
+use self::{units::Calories};
 pub mod units;
 pub mod backpack;
 pub mod crates;
+pub mod handheld;
  
-
 pub type Instructions = Vec<Instruction>;
 pub type Target = i32;
 pub type Items = Vec<Item>;
@@ -60,4 +60,9 @@ impl Command {
     }
 }
 
-
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Crane {
+    CrateMover9001, 
+    CrateMover9000,
+    Generic
+}
